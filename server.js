@@ -1,76 +1,82 @@
-const express = require('express')
-const line = require('@line/bot-sdk')
-const restClient = new (require('node-rest-client').Client)
+const express = require("express");
+const line = require("@line/bot-sdk");
+const { pin } = require("nodemon/lib/version");
+const restClient = new (require("node-rest-client").Client)();
 
-require('dotenv').config()
-const app = express()
+require("dotenv").config();
+const app = express();
 
 const config = {
   channelAccessToken: process.env.channelAccessToken,
-  channelSecret: process.env.channelSecret
+  channelSecret: process.env.channelSecret,
 };
 
 const client = new line.Client(config);
 
-app.get('/', function (req, res) {
-	res.send('03-pm2.5-bot')
-})
+app.get("/", function (req, res) {
+  res.send("03-pm2.5-bot");
+});
 
-app.post('/webhook', line.middleware(config), (req, res) => {
-  Promise
-    .all(req.body.events.map(handleEvent))
+app.post("/webhook", line.middleware(config), (req, res) => {
+  Promise.all(req.body.events.map(handleEvent))
     .then((result) => res.json(result))
-    .catch(err => console.log('err', err))
+    .catch((err) => console.log("err", err));
 });
 
 function handleEvent(event) {
-  if(event.type === 'message' && event.message.type === 'location') {
-    return handleLocationEvent(event)
-  }else {
-    return Promise.resolve(null)
+  if (event.type === "message" && event.message.type === "location") {
+    return handleLocationEvent(event);
+  } else {
+    return Promise.resolve(null);
   }
 }
 
 function handleLocationEvent(event) {
   return new Promise((resolve, reject) => {
-    restClient.get(`${process.env.apiUrl}?lat=${event.message.latitude}&long=${event.message.longitude}`, (data, response) => {
-      if (data) {
-        const pinData = data.map(row => ({
-          "thumbnailImageUrl": row.aqi.icon,
-          "imageBackgroundColor": "#FFFFFF",
-          "title": `PM 2.5: ${row.aqi.aqi}`,
-          "text": `${row.nameTH}, ${row.areaTH}`,
-          "actions": [
-            {
-              "type": "uri",
-              "label": "ข้อมูลย้อนหลัง",
-              "uri": row.historyUrl
-            }
-          ]
-        }))
-    
-        var msg = {
-          "type": "template",
-          "altText": "ข้อมูลสถานที่",
-          "template": {
-            "type": "carousel",
-            "columns": pinData,
-            "imageAspectRatio": "rectangle",
-            "imageSize": "cover"
-          }
-        }
+    restClient.get(
+      `${process.env.apiUrl}?lat=${event.message.latitude}&long=${event.message.longitude}`,
+      (data, response) => {
+        if (data) {
+          const pinData = data.map((row) => ({
+            thumbnailImageUrl: row.aqi.icon,
+            title: `AQI : ${row.aqi.aqi}`,
+            text: `พื้นที่ : ${row.areaTH}`, //ห้ามเกิน 60 charator
+            defaultAction: {
+              type: "uri",
+              label: "ข้อมูลย้อนหลัง",
+              uri: row.historyUrl,
+            },
+            actions: [
+              {
+                type: "uri",
+                label: "ข้อมูลย้อนหลัง",
+                uri: row.historyUrl,
+              },
+            ],
+          }));
 
-        resolve(client.replyMessage(event.replyToken, msg))
-      } else {
-        reject()
+          var msg = {
+            type: "template",
+            altText: "ข้อมูลสถานที่",
+            template: {
+              type: "carousel",
+              columns: pinData,
+              imageAspectRatio: "square",
+              imageSize: "cover",
+            },
+          };
+
+          resolve(client.replyMessage(event.replyToken, msg));
+        } else {
+          reject();
+        }
       }
-    })
-  })
- 
+    );
+  });
 }
 
-app.set('port', (process.env.PORT || 4000))
+app.set("port", process.env.PORT || 4000);
 
-app.listen(app.get('port'), function () {
-  console.log('run at port', app.get('port'))
-})
+app.listen(app.get("port"), function () {
+  console.log("run at port", app.get("port"));
+});

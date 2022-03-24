@@ -1,5 +1,5 @@
 {
-  "name": "02-reply-bot-with-sticker",
+  "name": "03-pm2.5-bot",
   "version": "1.0.0",
   "description": "",
   "main": "server.js",
